@@ -20,18 +20,14 @@ jobs:
           java-version: 17
           distribution: temurin
 
-      - name: Build with Maven
+      - name: Build package
         run: mvn clean package --batch-mode
 
-      - name: Run Tests
+      - name: Run tests
         run: mvn test
 
-      - name: Run Checkstyle
+      - name: Run Checkstyle (lint)
         run: mvn checkstyle:check
-
-      - name: Generate Swagger docs
-        run: mvn springdoc-openapi:generate
-        # alternatively add swagger-ui dependency to expose docs at runtime
 
   docker-build-push:
     needs: build-test-lint
@@ -48,21 +44,25 @@ jobs:
           password: Basu#12345
 
       - name: Build Docker image
-        run: docker build -t basutest/demo-app:latest .
+        run: docker build -t basutest/springboot-demo:latest .
 
       - name: Push Docker image
-        run: docker push basutest/demo-app:latest
+        run: docker push basutest/springboot-demo:latest
 
   deploy:
     needs: docker-build-push
     runs-on: ubuntu-latest
+
     steps:
-      - name: Deploy to Kubernetes
-        uses: azure/k8s-deploy@v1
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
         with:
-          namespace: default
-          manifests: |
-            ./k8s/deployment.yaml
-            ./k8s/service.yaml
-          images: |
-            basutest/demo-app:latest
+          version: 'latest'
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
